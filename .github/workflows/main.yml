@@ -3,7 +3,6 @@ name: build jar
 on:
   push:
     branches:
-      - main
       - v6
   workflow_dispatch:
 
