@@ -16,34 +16,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.plotsquared.core.configuration.caption;
+package com.plotsquared.core.util.query;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.ComponentLike;
+import com.plotsquared.core.plot.Plot;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-/**
- * Any message that can be sent to a player, the console, etc.
- */
-public interface Caption {
+class HasOwnerFilter implements PlotFilter {
 
-    /**
-     * Get the message that should be sent to the recipient
-     *
-     * @param localeHolder Locale holder
-     * @return Message
-     */
-    @NonNull String getComponent(@NonNull LocaleHolder localeHolder);
-
-    /**
-     * Get the Adventure {@link ComponentLike} for this caption
-     *
-     * @param localeHolder Locale holder
-     * @return {@link ComponentLike}
-     * @since 7.0.0
-     */
-    @NonNull Component toComponent(@NonNull LocaleHolder localeHolder);
-
-    @NonNull String toString();
+    @Override
+    public boolean accepts(final @NonNull Plot plot) {
+        return plot.hasOwner();
+    }
 
 }

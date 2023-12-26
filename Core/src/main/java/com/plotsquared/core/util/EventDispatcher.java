@@ -30,6 +30,7 @@ import com.plotsquared.core.events.PlayerEnterPlotEvent;
 import com.plotsquared.core.events.PlayerLeavePlotEvent;
 import com.plotsquared.core.events.PlayerPlotDeniedEvent;
 import com.plotsquared.core.events.PlayerPlotHelperEvent;
+import com.plotsquared.core.events.PlayerPlotLimitEvent;
 import com.plotsquared.core.events.PlayerPlotTrustedEvent;
 import com.plotsquared.core.events.PlayerTeleportToPlotEvent;
 import com.plotsquared.core.events.PlotAutoMergeEvent;
@@ -63,6 +64,7 @@ import com.plotsquared.core.plot.PlotId;
 import com.plotsquared.core.plot.Rating;
 import com.plotsquared.core.plot.flag.PlotFlag;
 import com.plotsquared.core.plot.flag.implementations.DeviceInteractFlag;
+import com.plotsquared.core.plot.flag.implementations.EditSignFlag;
 import com.plotsquared.core.plot.flag.implementations.MiscPlaceFlag;
 import com.plotsquared.core.plot.flag.implementations.MobPlaceFlag;
 import com.plotsquared.core.plot.flag.implementations.PlaceFlag;
@@ -74,6 +76,7 @@ import com.plotsquared.core.util.task.TaskManager;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.entity.Entity;
 import com.sk89q.worldedit.function.pattern.Pattern;
+import com.sk89q.worldedit.world.block.BlockCategories;
 import com.sk89q.worldedit.world.block.BlockType;
 import com.sk89q.worldedit.world.block.BlockTypes;
 import net.kyori.adventure.text.Component;
@@ -306,6 +309,12 @@ public class EventDispatcher {
         return event;
     }
 
+    public PlayerPlotLimitEvent callPlayerPlotLimit(PlotPlayer<?> player, int calculatedLimit) {
+        PlayerPlotLimitEvent event = new PlayerPlotLimitEvent(player, calculatedLimit);
+        eventBus.post(event);
+        return event;
+    }
+
     public void doJoinTask(final PlotPlayer<?> player) {
         if (player == null) {
             return; //possible future warning message to figure out where we are retrieving null
@@ -390,6 +399,12 @@ public class EventDispatcher {
                     }
                 }
                 if (player.hasPermission(Permission.PERMISSION_ADMIN_INTERACT_OTHER.toString(), false)) {
+                    return true;
+                }
+                // we check for the EditSignFlag in the PlayerSignOpenEvent again, but we must not cancel the interact event
+                // or send a message if the flag is true
+                if (BlockCategories.ALL_SIGNS != null && BlockCategories.ALL_SIGNS.contains(blockType)
+                        && plot.getFlag(EditSignFlag.class)) {
                     return true;
                 }
                 if (notifyPerms) {

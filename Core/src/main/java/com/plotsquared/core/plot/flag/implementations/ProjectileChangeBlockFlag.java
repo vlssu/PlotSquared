@@ -16,34 +16,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.plotsquared.core.configuration.caption;
+package com.plotsquared.core.plot.flag.implementations;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.ComponentLike;
+import com.plotsquared.core.configuration.caption.TranslatableCaption;
+import com.plotsquared.core.plot.flag.types.BooleanFlag;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-/**
- * Any message that can be sent to a player, the console, etc.
- */
-public interface Caption {
+public class ProjectileChangeBlockFlag extends BooleanFlag<ProjectileChangeBlockFlag> {
 
-    /**
-     * Get the message that should be sent to the recipient
-     *
-     * @param localeHolder Locale holder
-     * @return Message
-     */
-    @NonNull String getComponent(@NonNull LocaleHolder localeHolder);
+    public static final ProjectileChangeBlockFlag PROJECTILE_CHANGE_BLOCK_TRUE = new ProjectileChangeBlockFlag(true);
+    public static final ProjectileChangeBlockFlag PROJECTILE_CHANGE_BLOCK_FALSE = new ProjectileChangeBlockFlag(false);
 
-    /**
-     * Get the Adventure {@link ComponentLike} for this caption
-     *
-     * @param localeHolder Locale holder
-     * @return {@link ComponentLike}
-     * @since 7.0.0
-     */
-    @NonNull Component toComponent(@NonNull LocaleHolder localeHolder);
+    private ProjectileChangeBlockFlag(boolean value) {
+        super(value, TranslatableCaption.of("flags.flag_description_projectile_change_block"));
+    }
 
-    @NonNull String toString();
+    @Override
+    protected ProjectileChangeBlockFlag flagOf(@NonNull Boolean value) {
+        return value ? PROJECTILE_CHANGE_BLOCK_TRUE : PROJECTILE_CHANGE_BLOCK_FALSE;
+    }
 
 }
