@@ -123,8 +123,11 @@ public class EntitySpawnListener implements Listener {
         if (!location.isPlotArea() || area == null) {
             return;
         }
-        if (area.isSpawnCustom() && "CUSTOM".equals(entity.getEntitySpawnReason().name())) {
-            return;
+        if (PaperLib.isPaper()) {
+            //noinspection ConstantValue - getEntitySpawnReason annotated as NotNull, but is not NotNull. lol.
+            if (area.isSpawnCustom() && entity.getEntitySpawnReason() != null && "CUSTOM".equals(entity.getEntitySpawnReason().name())) {
+                return;
+            }
         }
         Plot plot = location.getOwnedPlotAbs();
         EntityType type = entity.getType();
@@ -151,7 +154,7 @@ public class EntitySpawnListener implements Listener {
         if (Settings.Done.RESTRICT_BUILDING && DoneFlag.isDone(plot)) {
             event.setCancelled(true);
         }
-        if (type == EntityType.ENDER_CRYSTAL) {
+        if (type == EntityType.ENDER_CRYSTAL || type == EntityType.ARMOR_STAND) {
             if (BukkitEntityUtil.checkEntity(entity, plot)) {
                 event.setCancelled(true);
             }

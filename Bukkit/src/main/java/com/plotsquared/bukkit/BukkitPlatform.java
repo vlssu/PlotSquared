@@ -779,8 +779,12 @@ public final class BukkitPlatform extends JavaPlugin implements Listener, PlotPl
                 Iterator<Entity> iterator = entities.iterator();
                 while (iterator.hasNext()) {
                     Entity entity = iterator.next();
-                    final String spawnReason = entity.getEntitySpawnReason().name();
-                    if ("CUSTOM".equals(spawnReason)) {
+                    //noinspection ConstantValue - getEntitySpawnReason annotated as NotNull, but is not NotNull. lol.
+                    if (PaperLib.isPaper() && entity.getEntitySpawnReason() != null && "CUSTOM".equals(entity.getEntitySpawnReason().name())) {
+                        continue;
+                    }
+                    // Fallback for Spigot not having Entity#getEntitySpawnReason
+                    if (entity.getMetadata("ps_custom_spawned").stream().anyMatch(MetadataValue::asBoolean)) {
                         continue;
                     }
                     switch (entity.getType().toString()) {
