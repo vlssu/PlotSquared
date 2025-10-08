@@ -23,7 +23,6 @@ import com.plotsquared.core.configuration.caption.TranslatableCaption;
 import com.plotsquared.core.events.PlotFlagAddEvent;
 import com.plotsquared.core.events.PlotFlagRemoveEvent;
 import com.plotsquared.core.events.Result;
-import com.plotsquared.core.location.Location;
 import com.plotsquared.core.permissions.Permission;
 import com.plotsquared.core.player.PlotPlayer;
 import com.plotsquared.core.plot.Plot;
@@ -56,8 +55,12 @@ public class Music extends SubCommand {
             .asList("music_disc_13", "music_disc_cat", "music_disc_blocks", "music_disc_chirp",
                     "music_disc_far", "music_disc_mall", "music_disc_mellohi", "music_disc_stal",
                     "music_disc_strad", "music_disc_ward", "music_disc_11", "music_disc_wait", "music_disc_otherside",
-                    "music_disc_pigstep", "music_disc_5", "music_disc_relic"
+                    "music_disc_pigstep", "music_disc_5", "music_disc_relic", "music_disc_creator",
+                    "music_disc_creator_music_box", "music_disc_precipice", "music_disc_tears", "music_disc_lava_chicken"
             );
+
+    // make sure all discs and the bedrock ("cancel") fit into the inventory
+    private static final int INVENTORY_ROWS = (int) Math.ceil((DISCS.size() + 1) / 9.0);
 
     private final InventoryUtil inventoryUtil;
     private final EventDispatcher eventDispatcher;
@@ -70,8 +73,7 @@ public class Music extends SubCommand {
 
     @Override
     public boolean onCommand(PlotPlayer<?> player, String[] args) {
-        Location location = player.getLocation();
-        final Plot plot = location.getPlotAbs();
+        final Plot plot = player.getCurrentPlot();
         if (plot == null) {
             player.sendMessage(TranslatableCaption.of("errors.not_in_plot"));
             return false;
@@ -93,7 +95,7 @@ public class Music extends SubCommand {
         PlotInventory inv = new PlotInventory(
                 this.inventoryUtil,
                 player,
-                2,
+                INVENTORY_ROWS,
                 TranslatableCaption.of("plotjukebox.jukebox_header").getComponent(player)
         ) {
             @Override

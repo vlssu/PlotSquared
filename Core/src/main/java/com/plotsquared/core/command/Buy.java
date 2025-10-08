@@ -20,6 +20,7 @@ package com.plotsquared.core.command;
 
 import com.google.inject.Inject;
 import com.plotsquared.core.PlotSquared;
+import com.plotsquared.core.configuration.Settings;
 import com.plotsquared.core.configuration.caption.TranslatableCaption;
 import com.plotsquared.core.events.PlayerBuyPlotEvent;
 import com.plotsquared.core.events.Result;
@@ -84,8 +85,9 @@ public class Buy extends Command {
         checkTrue(plot.hasOwner(), TranslatableCaption.of("info.plot_unowned"));
         checkTrue(!plot.isOwner(player.getUUID()), TranslatableCaption.of("economy.cannot_buy_own"));
         Set<Plot> plots = plot.getConnectedPlots();
+        int plotCount = Settings.Limit.GLOBAL ? player.getPlotCount() : player.getPlotCount(plot.getWorldName());
         checkTrue(
-                player.getPlotCount() + plots.size() <= player.getAllowedPlots(),
+                plotCount + plots.size() <= player.getAllowedPlots(),
                 TranslatableCaption.of("permission.cant_claim_more_plots"),
                 TagResolver.resolver("amount", Tag.inserting(Component.text(player.getAllowedPlots())))
         );
@@ -144,6 +146,7 @@ public class Buy extends Command {
             plot.getPlotModificationManager().setSign(player.getName());
             player.sendMessage(
                     TranslatableCaption.of("working.claimed"),
+                    TagResolver.resolver("world", Tag.inserting(Component.text(plot.getArea().getWorldName()))),
                     TagResolver.resolver("plot", Tag.inserting(Component.text(plot.getId().toString())))
             );
             this.eventDispatcher.callPostPlayerBuyPlot(player, previousOwner, plot, price);

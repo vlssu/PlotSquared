@@ -16,33 +16,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.plotsquared.core.command;
+package com.plotsquared.core.plot.flag.implementations;
 
 import com.plotsquared.core.configuration.caption.TranslatableCaption;
-import com.plotsquared.core.events.TeleportCause;
-import com.plotsquared.core.player.PlotPlayer;
-import com.plotsquared.core.plot.Plot;
+import com.plotsquared.core.plot.flag.types.BooleanFlag;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
-/**
- * @author manuelgu, altered by Citymonstret
- */
-@CommandDeclaration(command = "middle",
-        aliases = {"center", "centre"},
-        usage = "/plot middle",
-        category = CommandCategory.TELEPORT,
-        requiredType = RequiredType.PLAYER)
-public class Middle extends SubCommand {
+public class InteractionInteractFlag extends BooleanFlag<InteractionInteractFlag> {
+
+    public static final InteractionInteractFlag INTERACTION_INTERACT_TRUE = new InteractionInteractFlag(true);
+    public static final InteractionInteractFlag INTERACTION_INTERACT_FALSE = new InteractionInteractFlag(false);
+
+    private InteractionInteractFlag(boolean value) {
+        super(value, TranslatableCaption.of("flags.flag_description_interaction_interact"));
+    }
 
     @Override
-    public boolean onCommand(PlotPlayer<?> player, String[] arguments) {
-        Plot plot = player.getCurrentPlot();
-        if (plot == null) {
-            player.sendMessage(TranslatableCaption.of("errors.not_in_plot"));
-            return false;
-        }
-        plot.getCenter(center -> player.teleport(center, TeleportCause.COMMAND_MIDDLE));
-        player.sendMessage(TranslatableCaption.of("teleport.teleported_to_plot"));
-        return true;
+    protected InteractionInteractFlag flagOf(@NonNull Boolean value) {
+        return value ? INTERACTION_INTERACT_TRUE : INTERACTION_INTERACT_FALSE;
     }
 
 }

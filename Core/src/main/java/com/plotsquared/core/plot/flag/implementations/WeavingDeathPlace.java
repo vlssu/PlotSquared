@@ -16,33 +16,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.plotsquared.core.command;
+package com.plotsquared.core.plot.flag.implementations;
 
 import com.plotsquared.core.configuration.caption.TranslatableCaption;
-import com.plotsquared.core.events.TeleportCause;
-import com.plotsquared.core.player.PlotPlayer;
-import com.plotsquared.core.plot.Plot;
+import com.plotsquared.core.plot.flag.types.BooleanFlag;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
-/**
- * @author manuelgu, altered by Citymonstret
- */
-@CommandDeclaration(command = "middle",
-        aliases = {"center", "centre"},
-        usage = "/plot middle",
-        category = CommandCategory.TELEPORT,
-        requiredType = RequiredType.PLAYER)
-public class Middle extends SubCommand {
+public class WeavingDeathPlace extends BooleanFlag<WeavingDeathPlace> {
+
+    public static final WeavingDeathPlace WEAVING_DEATH_PLACE_TRUE = new WeavingDeathPlace(true);
+    public static final WeavingDeathPlace WEAVING_DEATH_PLACE_FALSE = new WeavingDeathPlace(false);
+
+    private WeavingDeathPlace(boolean value) {
+        super(value, TranslatableCaption.of("flags.flag_description_weaving_death_place"));
+    }
 
     @Override
-    public boolean onCommand(PlotPlayer<?> player, String[] arguments) {
-        Plot plot = player.getCurrentPlot();
-        if (plot == null) {
-            player.sendMessage(TranslatableCaption.of("errors.not_in_plot"));
-            return false;
-        }
-        plot.getCenter(center -> player.teleport(center, TeleportCause.COMMAND_MIDDLE));
-        player.sendMessage(TranslatableCaption.of("teleport.teleported_to_plot"));
-        return true;
+    protected WeavingDeathPlace flagOf(@NonNull Boolean value) {
+        return value ? WEAVING_DEATH_PLACE_TRUE : WEAVING_DEATH_PLACE_FALSE;
     }
 
 }

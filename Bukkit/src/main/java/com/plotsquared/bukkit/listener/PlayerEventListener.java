@@ -54,6 +54,7 @@ import com.plotsquared.core.plot.flag.implementations.EditSignFlag;
 import com.plotsquared.core.plot.flag.implementations.HangingBreakFlag;
 import com.plotsquared.core.plot.flag.implementations.HangingPlaceFlag;
 import com.plotsquared.core.plot.flag.implementations.HostileInteractFlag;
+import com.plotsquared.core.plot.flag.implementations.InteractionInteractFlag;
 import com.plotsquared.core.plot.flag.implementations.ItemDropFlag;
 import com.plotsquared.core.plot.flag.implementations.KeepInventoryFlag;
 import com.plotsquared.core.plot.flag.implementations.LecternReadBookFlag;
@@ -63,9 +64,11 @@ import com.plotsquared.core.plot.flag.implementations.PreventCreativeCopyFlag;
 import com.plotsquared.core.plot.flag.implementations.TamedInteractFlag;
 import com.plotsquared.core.plot.flag.implementations.TileDropFlag;
 import com.plotsquared.core.plot.flag.implementations.UntrustedVisitFlag;
+import com.plotsquared.core.plot.flag.implementations.UseFlag;
 import com.plotsquared.core.plot.flag.implementations.VehicleBreakFlag;
 import com.plotsquared.core.plot.flag.implementations.VehicleUseFlag;
 import com.plotsquared.core.plot.flag.implementations.VillagerInteractFlag;
+import com.plotsquared.core.plot.flag.types.BlockTypeWrapper;
 import com.plotsquared.core.plot.world.PlotAreaManager;
 import com.plotsquared.core.util.EventDispatcher;
 import com.plotsquared.core.util.MathMan;
@@ -76,7 +79,9 @@ import com.plotsquared.core.util.task.TaskManager;
 import com.plotsquared.core.util.task.TaskTime;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
+import com.sk89q.worldedit.util.Enums;
 import com.sk89q.worldedit.world.block.BlockType;
+import com.sk89q.worldedit.world.block.BlockTypes;
 import io.papermc.lib.PaperLib;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -87,10 +92,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
-import org.bukkit.block.data.Waterlogged;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Boat;
@@ -153,9 +156,12 @@ import org.bukkit.util.Vector;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.lang.reflect.Field;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -179,7 +185,17 @@ public class PlayerEventListener implements Listener {
             Material.WRITABLE_BOOK,
             Material.WRITTEN_BOOK
     );
+
+    /**
+     * The correct EntityType for End Crystal, determined once at class loading time.
+     * Tries END_CRYSTAL first (1.21+), falls back to ENDER_CRYSTAL (1.20.4 and older).
+     */
+    private static final EntityType END_CRYSTAL_ENTITY_TYPE = Objects.requireNonNull(
+            Enums.findByValue(EntityType.class, "END_CRYSTAL", "ENDER_CRYSTAL")
+    );
+
     private static final Set<String> DYES;
+
     static {
         Set<String> mutableDyes = new HashSet<>(Set.of(
                 "WHITE_DYE",
@@ -201,11 +217,76 @@ public class PlayerEventListener implements Listener {
                 "GLOW_INK_SAC"
         ));
         int[] version = PlotSquared.platform().serverVersion();
-        if (version[1] >= 20 && version[2] >= 1) {
+        if (version[1] >= 20) {
             mutableDyes.add("HONEYCOMB");
         }
         DYES = Set.copyOf(mutableDyes);
     }
+
+    private static final Set<String> INTERACTABLE_MATERIALS;
+
+    static {
+        // @formatter:off
+        // "temporary" fix for https://hub.spigotmc.org/jira/browse/SPIGOT-7813
+        // can (and should) be removed when 1.21 support is dropped
+        // List of all interactable 1.21 materials
+        INTERACTABLE_MATERIALS = Material.CHEST.isInteractable() ? null : Set.of(
+                "REDSTONE_ORE", "DEEPSLATE_REDSTONE_ORE", "CHISELED_BOOKSHELF", "DECORATED_POT", "CHEST", "CRAFTING_TABLE",
+                "FURNACE", "JUKEBOX", "OAK_FENCE", "SPRUCE_FENCE", "BIRCH_FENCE", "JUNGLE_FENCE", "ACACIA_FENCE", "CHERRY_FENCE",
+                "DARK_OAK_FENCE", "MANGROVE_FENCE", "BAMBOO_FENCE", "CRIMSON_FENCE", "WARPED_FENCE", "PUMPKIN",
+                "NETHER_BRICK_FENCE", "ENCHANTING_TABLE", "DRAGON_EGG", "ENDER_CHEST", "COMMAND_BLOCK", "BEACON", "ANVIL",
+                "CHIPPED_ANVIL", "DAMAGED_ANVIL", "LIGHT", "REPEATING_COMMAND_BLOCK", "CHAIN_COMMAND_BLOCK", "SHULKER_BOX",
+                "WHITE_SHULKER_BOX", "ORANGE_SHULKER_BOX", "MAGENTA_SHULKER_BOX", "LIGHT_BLUE_SHULKER_BOX", "YELLOW_SHULKER_BOX",
+                "LIME_SHULKER_BOX", "PINK_SHULKER_BOX", "GRAY_SHULKER_BOX", "LIGHT_GRAY_SHULKER_BOX", "CYAN_SHULKER_BOX",
+                "PURPLE_SHULKER_BOX", "BLUE_SHULKER_BOX", "BROWN_SHULKER_BOX", "GREEN_SHULKER_BOX", "RED_SHULKER_BOX",
+                "BLACK_SHULKER_BOX", "REPEATER", "COMPARATOR", "HOPPER", "DISPENSER", "DROPPER", "LECTERN", "LEVER",
+                "DAYLIGHT_DETECTOR", "TRAPPED_CHEST", "TNT", "NOTE_BLOCK", "STONE_BUTTON", "POLISHED_BLACKSTONE_BUTTON",
+                "OAK_BUTTON", "SPRUCE_BUTTON", "BIRCH_BUTTON", "JUNGLE_BUTTON", "ACACIA_BUTTON", "CHERRY_BUTTON",
+                "DARK_OAK_BUTTON", "MANGROVE_BUTTON", "BAMBOO_BUTTON", "CRIMSON_BUTTON", "WARPED_BUTTON", "IRON_DOOR", "OAK_DOOR",
+                "SPRUCE_DOOR", "BIRCH_DOOR", "JUNGLE_DOOR", "ACACIA_DOOR", "CHERRY_DOOR", "DARK_OAK_DOOR", "MANGROVE_DOOR",
+                "BAMBOO_DOOR", "CRIMSON_DOOR", "WARPED_DOOR", "COPPER_DOOR", "EXPOSED_COPPER_DOOR", "WEATHERED_COPPER_DOOR",
+                "OXIDIZED_COPPER_DOOR", "WAXED_COPPER_DOOR", "WAXED_EXPOSED_COPPER_DOOR", "WAXED_WEATHERED_COPPER_DOOR",
+                "WAXED_OXIDIZED_COPPER_DOOR", "IRON_TRAPDOOR", "OAK_TRAPDOOR", "SPRUCE_TRAPDOOR", "BIRCH_TRAPDOOR",
+                "JUNGLE_TRAPDOOR", "ACACIA_TRAPDOOR", "CHERRY_TRAPDOOR", "DARK_OAK_TRAPDOOR", "MANGROVE_TRAPDOOR",
+                "BAMBOO_TRAPDOOR", "CRIMSON_TRAPDOOR", "WARPED_TRAPDOOR", "COPPER_TRAPDOOR", "EXPOSED_COPPER_TRAPDOOR",
+                "WEATHERED_COPPER_TRAPDOOR", "OXIDIZED_COPPER_TRAPDOOR", "WAXED_COPPER_TRAPDOOR", "WAXED_EXPOSED_COPPER_TRAPDOOR",
+                "WAXED_WEATHERED_COPPER_TRAPDOOR", "WAXED_OXIDIZED_COPPER_TRAPDOOR", "OAK_FENCE_GATE", "SPRUCE_FENCE_GATE",
+                "BIRCH_FENCE_GATE", "JUNGLE_FENCE_GATE", "ACACIA_FENCE_GATE", "CHERRY_FENCE_GATE", "DARK_OAK_FENCE_GATE",
+                "MANGROVE_FENCE_GATE", "BAMBOO_FENCE_GATE", "CRIMSON_FENCE_GATE", "WARPED_FENCE_GATE", "STRUCTURE_BLOCK",
+                "JIGSAW", "OAK_SIGN", "SPRUCE_SIGN", "BIRCH_SIGN", "JUNGLE_SIGN", "ACACIA_SIGN", "CHERRY_SIGN", "DARK_OAK_SIGN",
+                "MANGROVE_SIGN", "BAMBOO_SIGN", "CRIMSON_SIGN", "WARPED_SIGN", "OAK_HANGING_SIGN", "SPRUCE_HANGING_SIGN",
+                "BIRCH_HANGING_SIGN", "JUNGLE_HANGING_SIGN", "ACACIA_HANGING_SIGN", "CHERRY_HANGING_SIGN",
+                "DARK_OAK_HANGING_SIGN", "MANGROVE_HANGING_SIGN", "BAMBOO_HANGING_SIGN", "CRIMSON_HANGING_SIGN",
+                "WARPED_HANGING_SIGN", "CAKE", "WHITE_BED", "ORANGE_BED", "MAGENTA_BED", "LIGHT_BLUE_BED", "YELLOW_BED",
+                "LIME_BED", "PINK_BED", "GRAY_BED", "LIGHT_GRAY_BED", "CYAN_BED", "PURPLE_BED", "BLUE_BED", "BROWN_BED",
+                "GREEN_BED", "RED_BED", "BLACK_BED", "CRAFTER", "BREWING_STAND", "CAULDRON", "FLOWER_POT", "LOOM", "COMPOSTER",
+                "BARREL", "SMOKER", "BLAST_FURNACE", "CARTOGRAPHY_TABLE", "FLETCHING_TABLE", "GRINDSTONE", "SMITHING_TABLE",
+                "STONECUTTER", "BELL", "CAMPFIRE", "SOUL_CAMPFIRE", "BEE_NEST", "BEEHIVE", "RESPAWN_ANCHOR", "CANDLE",
+                "WHITE_CANDLE", "ORANGE_CANDLE", "MAGENTA_CANDLE", "LIGHT_BLUE_CANDLE", "YELLOW_CANDLE", "LIME_CANDLE",
+                "PINK_CANDLE", "GRAY_CANDLE", "LIGHT_GRAY_CANDLE", "CYAN_CANDLE", "PURPLE_CANDLE", "BLUE_CANDLE", "BROWN_CANDLE",
+                "GREEN_CANDLE", "RED_CANDLE", "BLACK_CANDLE", "VAULT", "MOVING_PISTON", "REDSTONE_WIRE", "OAK_WALL_SIGN",
+                "SPRUCE_WALL_SIGN", "BIRCH_WALL_SIGN", "ACACIA_WALL_SIGN", "CHERRY_WALL_SIGN", "JUNGLE_WALL_SIGN",
+                "DARK_OAK_WALL_SIGN", "MANGROVE_WALL_SIGN", "BAMBOO_WALL_SIGN", "OAK_WALL_HANGING_SIGN",
+                "SPRUCE_WALL_HANGING_SIGN", "BIRCH_WALL_HANGING_SIGN", "ACACIA_WALL_HANGING_SIGN",
+                "CHERRY_WALL_HANGING_SIGN", "JUNGLE_WALL_HANGING_SIGN", "DARK_OAK_WALL_HANGING_SIGN",
+                "MANGROVE_WALL_HANGING_SIGN", "CRIMSON_WALL_HANGING_SIGN", "WARPED_WALL_HANGING_SIGN", "BAMBOO_WALL_HANGING_SIGN",
+                "WATER_CAULDRON", "LAVA_CAULDRON", "POWDER_SNOW_CAULDRON", "POTTED_TORCHFLOWER", "POTTED_OAK_SAPLING",
+                "POTTED_SPRUCE_SAPLING", "POTTED_BIRCH_SAPLING", "POTTED_JUNGLE_SAPLING", "POTTED_ACACIA_SAPLING",
+                "POTTED_CHERRY_SAPLING", "POTTED_DARK_OAK_SAPLING", "POTTED_MANGROVE_PROPAGULE", "POTTED_FERN",
+                "POTTED_DANDELION", "POTTED_POPPY", "POTTED_BLUE_ORCHID", "POTTED_ALLIUM", "POTTED_AZURE_BLUET",
+                "POTTED_RED_TULIP", "POTTED_ORANGE_TULIP", "POTTED_WHITE_TULIP", "POTTED_PINK_TULIP", "POTTED_OXEYE_DAISY",
+                "POTTED_CORNFLOWER", "POTTED_LILY_OF_THE_VALLEY", "POTTED_WITHER_ROSE", "POTTED_RED_MUSHROOM",
+                "POTTED_BROWN_MUSHROOM", "POTTED_DEAD_BUSH", "POTTED_CACTUS", "POTTED_BAMBOO", "SWEET_BERRY_BUSH",
+                "CRIMSON_WALL_SIGN", "WARPED_WALL_SIGN", "POTTED_CRIMSON_FUNGUS", "POTTED_WARPED_FUNGUS", "POTTED_CRIMSON_ROOTS",
+                "POTTED_WARPED_ROOTS", "CANDLE_CAKE", "WHITE_CANDLE_CAKE", "ORANGE_CANDLE_CAKE", "MAGENTA_CANDLE_CAKE",
+                "LIGHT_BLUE_CANDLE_CAKE", "YELLOW_CANDLE_CAKE", "LIME_CANDLE_CAKE", "PINK_CANDLE_CAKE", "GRAY_CANDLE_CAKE",
+                "LIGHT_GRAY_CANDLE_CAKE", "CYAN_CANDLE_CAKE", "PURPLE_CANDLE_CAKE", "BLUE_CANDLE_CAKE", "BROWN_CANDLE_CAKE",
+                "GREEN_CANDLE_CAKE", "RED_CANDLE_CAKE", "BLACK_CANDLE_CAKE", "CAVE_VINES", "CAVE_VINES_PLANT",
+                "POTTED_AZALEA_BUSH", "POTTED_FLOWERING_AZALEA_BUSH"
+        );
+        // @formatter:on
+    }
+
     private final EventDispatcher eventDispatcher;
     private final WorldEdit worldEdit;
     private final PlotAreaManager plotAreaManager;
@@ -310,7 +391,7 @@ public class PlayerEventListener implements Listener {
 
     @EventHandler
     public void onVehicleEntityCollision(VehicleEntityCollisionEvent e) {
-        if (e.getVehicle().getType() == EntityType.BOAT) {
+        if (e.getVehicle() instanceof Boat) {
             Location location = BukkitUtil.adapt(e.getEntity().getLocation());
             if (location.isPlotArea()) {
                 if (e.getEntity() instanceof Player) {
@@ -467,12 +548,14 @@ public class PlayerEventListener implements Listener {
         // Delayed
 
         // Async
-        TaskManager.runTaskLaterAsync(() -> {
-            if (!player.hasPlayedBefore() && player.isOnline()) {
-                player.saveData();
-            }
-            this.eventDispatcher.doJoinTask(pp);
-        }, TaskTime.seconds(1L));
+        TaskManager.runTaskLaterAsync(
+                () -> {
+                    if (!player.hasPlayedBefore() && player.isOnline()) {
+                        player.saveData();
+                    }
+                    this.eventDispatcher.doJoinTask(pp);
+                }, TaskTime.seconds(1L)
+        );
 
         if (pp.hasPermission(Permission.PERMISSION_ADMIN_UPDATE_NOTIFICATION.toString()) && Settings.Enabled_Components.UPDATE_NOTIFICATIONS
                 && PremiumVerification.isPremium() && UpdateUtility.hasUpdate) {
@@ -527,15 +610,21 @@ public class PlayerEventListener implements Listener {
                     return;
                 }
                 Plot plot = area.getPlot(location);
-                if (plot != null) {
+                if (plot != null && !plot.equals(lastPlot)) {
                     final boolean result = DenyTeleportFlag.allowsTeleport(pp, plot);
                     // there is one possibility to still allow teleportation:
                     // to is identical to the plot's home location, and untrusted-visit is true
                     // i.e. untrusted-visit can override deny-teleport
                     // this is acceptable, because otherwise it wouldn't make sense to have both flags set
-                    if (!result && !(plot.getFlag(UntrustedVisitFlag.class) && plot
+                    if (result || (plot.getFlag(UntrustedVisitFlag.class) && plot
                             .getHomeSynchronous()
                             .equals(BukkitUtil.adaptComplete(to)))) {
+                        // returns false if the player is not allowed to enter the plot (if they are denied, for example)
+                        // don't let the move event cancel the entry after teleport, but rather catch and cancel early (#4647)
+                        if (!plotListener.plotEntry(pp, plot)) {
+                            event.setCancelled(true);
+                        }
+                    } else {
                         pp.sendMessage(
                                 TranslatableCaption.of("deny.no_enter"),
                                 TagResolver.resolver("plot", Tag.inserting(Component.text(plot.toString())))
@@ -546,6 +635,19 @@ public class PlayerEventListener implements Listener {
             }
         }
         playerMove(event);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onWorldChanged(PlayerChangedWorldEvent event) {
+        Player player = event.getPlayer();
+        BukkitPlayer pp = BukkitUtil.adapt(player);
+        if (this.worldEdit != null) {
+            if (!pp.hasPermission(Permission.PERMISSION_WORLDEDIT_BYPASS)) {
+                if (pp.getAttribute("worldedit")) {
+                    pp.removeAttribute("worldedit");
+                }
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -860,12 +962,15 @@ public class PlayerEventListener implements Listener {
         builder.tag("plot_id", Tag.inserting(Component.text(id.toString())));
         builder.tag("sender", Tag.inserting(Component.text(sender)));
         if (plotPlayer.hasPermission("plots.chat.color")) {
-            builder.tag("msg", Tag.inserting(MiniMessage.miniMessage().deserialize(
-                    message,
-                    TagResolver.resolver(StandardTags.color(), StandardTags.gradient(),
-                            StandardTags.rainbow(), StandardTags.decorations()
-                    )
-            )));
+            builder.tag(
+                    "msg", Tag.inserting(MiniMessage.miniMessage().deserialize(
+                            message,
+                            TagResolver.resolver(
+                                    StandardTags.color(), StandardTags.gradient(),
+                                    StandardTags.rainbow(), StandardTags.decorations()
+                            )
+                    ))
+            );
         } else {
             builder.tag("msg", Tag.inserting(Component.text(message)));
         }
@@ -884,40 +989,6 @@ public class PlayerEventListener implements Listener {
                     spymsg,
                     builder.tag("message", Tag.inserting(Component.text(message))).build()
             );
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onWorldChanged(PlayerChangedWorldEvent event) {
-        Player player = event.getPlayer();
-        BukkitPlayer pp = BukkitUtil.adapt(player);
-        // Delete last location
-        Plot plot;
-        try (final MetaDataAccess<Plot> lastPlotAccess =
-                     pp.accessTemporaryMetaData(PlayerMetaDataKeys.TEMPORARY_LAST_PLOT)) {
-            plot = lastPlotAccess.remove();
-        }
-        try (final MetaDataAccess<Location> lastLocationAccess =
-                     pp.accessTemporaryMetaData(PlayerMetaDataKeys.TEMPORARY_LOCATION)) {
-            lastLocationAccess.remove();
-        }
-        if (plot != null) {
-            plotListener.plotExit(pp, plot);
-        }
-        if (this.worldEdit != null) {
-            if (!pp.hasPermission(Permission.PERMISSION_WORLDEDIT_BYPASS)) {
-                if (pp.getAttribute("worldedit")) {
-                    pp.removeAttribute("worldedit");
-                }
-            }
-        }
-        Location location = pp.getLocation();
-        PlotArea area = location.getPlotArea();
-        if (location.isPlotArea()) {
-            plot = location.getPlot();
-            if (plot != null) {
-                plotListener.plotEntry(pp, plot);
-            }
         }
     }
 
@@ -1208,7 +1279,9 @@ public class PlayerEventListener implements Listener {
                 eventType = PlayerBlockEventType.INTERACT_BLOCK;
                 blocktype1 = BukkitAdapter.asBlockType(block.getType());
 
-                if (blockType.isInteractable()) {
+                if (INTERACTABLE_MATERIALS != null
+                        ? INTERACTABLE_MATERIALS.contains(blockType.name())
+                        : blockType.isInteractable()) {
                     if (!player.isSneaking()) {
                         break;
                     }
@@ -1226,7 +1299,7 @@ public class PlayerEventListener implements Listener {
                 // in the following, lb needs to have the material of the item in hand i.e. type
                 switch (type.toString()) {
                     case "REDSTONE", "STRING", "PUMPKIN_SEEDS", "MELON_SEEDS", "COCOA_BEANS", "WHEAT_SEEDS", "BEETROOT_SEEDS",
-                            "SWEET_BERRIES", "GLOW_BERRIES" -> {
+                         "SWEET_BERRIES", "GLOW_BERRIES" -> {
                         return;
                     }
                     default -> {
@@ -1251,6 +1324,17 @@ public class PlayerEventListener implements Listener {
                     //Allow all players to eat while also allowing the block place event to be fired
                     return;
                 }
+                // Process creature spawning of armor stands & end crystals here if spawned by the player in order to be able to
+                // reset the player's hand item if spawning needs to be cancelled.
+                if (type == Material.ARMOR_STAND || type == Material.END_CRYSTAL) {
+                    Plot plot = location.getOwnedPlotAbs();
+                    EntityType entityType = type == Material.ARMOR_STAND ? EntityType.ARMOR_STAND : END_CRYSTAL_ENTITY_TYPE;
+                    if (BukkitEntityUtil.checkEntity(entityType, plot)) {
+                        event.setCancelled(true);
+                        break;
+                    }
+                }
+                // Continue with normal place event checks
                 if (type == Material.ARMOR_STAND) {
                     location = BukkitUtil.adapt(block.getRelative(event.getBlockFace()).getLocation());
                     eventType = PlayerBlockEventType.PLACE_MISC;
@@ -1325,22 +1409,7 @@ public class PlayerEventListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBucketEmpty(PlayerBucketEmptyEvent event) {
-        BlockFace bf = event.getBlockFace();
-        // Note: a month after Bukkit 1.14.4 released, they added the API method
-        // PlayerBucketEmptyEvent#getBlock(), which returns the block the
-        // bucket contents is going to be placed at. Currently we determine this
-        // block ourselves to retain compatibility with 1.13.
-        final Block block;
-        // if the block can be waterlogged, the event might waterlog the block
-        // sometimes
-        if (event.getBlockClicked().getBlockData() instanceof Waterlogged waterlogged
-                && !waterlogged.isWaterlogged() && event.getBucket() != Material.LAVA_BUCKET) {
-            block = event.getBlockClicked();
-        } else {
-            block = event.getBlockClicked().getLocation()
-                    .add(bf.getModX(), bf.getModY(), bf.getModZ())
-                    .getBlock();
-        }
+        final Block block = event.getBlock();
         Location location = BukkitUtil.adapt(block.getLocation());
         PlotArea area = location.getPlotArea();
         if (area == null) {
@@ -1348,6 +1417,16 @@ public class PlayerEventListener implements Listener {
         }
         BukkitPlayer pp = BukkitUtil.adapt(event.getPlayer());
         Plot plot = area.getPlot(location);
+        final List<BlockTypeWrapper> use =
+                Optional.ofNullable(plot).map(p -> p.getFlag(UseFlag.class)).orElse(area.isRoadFlags() ?
+                        area.getFlag(UseFlag.class) : Collections.emptyList());
+        BlockType type = BukkitAdapter.asBlockType(block.getType());
+        for (final BlockTypeWrapper blockTypeWrapper : use) {
+            if (blockTypeWrapper.accepts(BlockTypes.AIR) || blockTypeWrapper
+                    .accepts(type)) {
+                return;
+            }
+        }
         if (plot == null) {
             if (pp.hasPermission(Permission.PERMISSION_ADMIN_BUILD_ROAD)) {
                 return;
@@ -1419,6 +1498,16 @@ public class PlayerEventListener implements Listener {
         Player player = event.getPlayer();
         BukkitPlayer plotPlayer = BukkitUtil.adapt(player);
         Plot plot = area.getPlot(location);
+        final List<BlockTypeWrapper> use =
+                Optional.ofNullable(plot).map(p -> p.getFlag(UseFlag.class)).orElse(area.isRoadFlags() ?
+                        area.getFlag(UseFlag.class) : Collections.emptyList());
+        BlockType type = BukkitAdapter.asBlockType(blockClicked.getType());
+        for (final BlockTypeWrapper blockTypeWrapper : use) {
+            if (blockTypeWrapper.accepts(BlockTypes.AIR) || blockTypeWrapper
+                    .accepts(type)) {
+                return;
+            }
+        }
         if (plot == null) {
             if (plotPlayer.hasPermission(Permission.PERMISSION_ADMIN_BUILD_ROAD)) {
                 return;
@@ -1690,6 +1779,11 @@ public class PlayerEventListener implements Listener {
 
             if (EntityCategories.PLAYER.contains(entityType) && flagContainer
                     .getFlag(PlayerInteractFlag.class).getValue()) {
+                return;
+            }
+
+            if (EntityCategories.INTERACTION.contains(entityType) && flagContainer
+                    .getFlag(InteractionInteractFlag.class).getValue()) {
                 return;
             }
 

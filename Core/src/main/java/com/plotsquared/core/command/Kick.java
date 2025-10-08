@@ -65,8 +65,7 @@ public class Kick extends SubCommand {
 
     @Override
     public boolean onCommand(PlotPlayer<?> player, String[] args) {
-        Location location = player.getLocation();
-        Plot plot = location.getPlot();
+        Plot plot = player.getCurrentPlot();
         if (plot == null) {
             player.sendMessage(TranslatableCaption.of("errors.not_in_plot"));
             return false;
@@ -124,7 +123,7 @@ public class Kick extends SubCommand {
                         );
                         return;
                     }
-                    Location spawn = this.worldUtil.getSpawn(location.getWorldName());
+                    Location spawn = this.worldUtil.getSpawn(plot.getWorldName());
                     player2.sendMessage(TranslatableCaption.of("kick.you_got_kicked"));
                     if (plot.equals(spawn.getPlot())) {
                         Location newSpawn = this.worldUtil.getSpawn(this.plotAreaManager.getAllWorlds()[0]);
@@ -148,12 +147,11 @@ public class Kick extends SubCommand {
 
     @Override
     public Collection<Command> tab(final PlotPlayer<?> player, final String[] args, final boolean space) {
-        Location location = player.getLocation();
-        Plot plot = location.getPlotAbs();
+        Plot plot = player.getCurrentPlot();
         if (plot == null) {
             return Collections.emptyList();
         }
-        return TabCompletions.completePlayersInPlot(plot, String.join(",", args).trim(),
+        return TabCompletions.completePlayersInPlot(player, plot, String.join(",", args).trim(),
                 Collections.singletonList(player.getName())
         );
     }

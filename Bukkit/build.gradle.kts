@@ -3,7 +3,7 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 repositories {
     maven {
         name = "PlaceholderAPI"
-        url = uri("https://repo.extendedclip.com/content/repositories/placeholderapi/")
+        url = uri("https://repo.extendedclip.com/releases/")
     }
 
     maven {
@@ -14,6 +14,19 @@ repositories {
     maven {
         name = "EssentialsX"
         url = uri("https://repo.essentialsx.net/releases/")
+    }
+}
+
+// Make sure we control the exact version of paper being included, while dropping spigot + bukkit
+configurations.all {
+    exclude("org.bukkit")
+    exclude("org.spigotmc")
+
+    resolutionStrategy.eachDependency {
+        if (requested.group == "io.papermc.paper" && requested.name == "paper-api") {
+            useVersion(checkNotNull(libs.paper.orNull?.version))
+            because("specific paper version is required to prevent binary incompatibilities on older versions")
+        }
     }
 }
 
@@ -28,15 +41,10 @@ dependencies {
     implementation(libs.paperlib)
 
     // Plugins
-    compileOnly(libs.worldeditBukkit) {
-        exclude(group = "org.bukkit")
-        exclude(group = "org.spigotmc")
-    }
+    compileOnly(libs.worldeditBukkit)
     compileOnly(libs.faweBukkit) { isTransitive = false }
     testImplementation(libs.faweBukkit) { isTransitive = false }
-    compileOnly(libs.vault) {
-        exclude(group = "org.bukkit")
-    }
+    compileOnly(libs.vault)
     compileOnly(libs.placeholderapi)
     compileOnly(libs.luckperms)
     compileOnly(libs.essentialsx)
@@ -101,17 +109,18 @@ tasks {
     withType<Javadoc> {
         val isRelease = if (rootProject.version.toString().endsWith("-SNAPSHOT")) "TODO" else rootProject.version.toString()
         val opt = options as StandardJavadocDocletOptions
-        opt.links("https://jd.papermc.io/paper/1.20/")
+        opt.links("https://jd.papermc.io/paper/1.20.4/")
         opt.links("https://docs.enginehub.org/javadoc/com.sk89q.worldedit/worldedit-bukkit/" + libs.worldeditBukkit.get().versionConstraint.toString())
         opt.links("https://intellectualsites.github.io/plotsquared-javadocs/core/")
-        opt.links("https://jd.advntr.dev/api/4.14.0/")
+        opt.links("https://jd.advntr.dev/api/" + libs.adventureApi.get().versionConstraint.toString())
         opt.links("https://google.github.io/guice/api-docs/" + libs.guice.get().versionConstraint.toString() + "/javadoc/")
-    //    opt.links("https://checkerframework.org/api/")
+        opt.links("https://checkerframework.org/api/")
         opt.isLinkSource = true
         opt.bottom(File("$rootDir/javadocfooter.html").readText())
         opt.isUse = true
         opt.encoding("UTF-8")
         opt.keyWords()
         opt.addStringOption("-since", isRelease)
+        opt.noTimestamp()
     }
 }
