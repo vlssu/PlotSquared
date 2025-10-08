@@ -30,7 +30,7 @@ jobs:
             echo "STATUS=release" >> $GITHUB_ENV
           fi
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: PlotSquared Artifact
           path: Bukkit/build/libs/*.jar
